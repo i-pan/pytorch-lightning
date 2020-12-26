@@ -29,6 +29,8 @@ from pytorch_lightning.utilities.debugging import InternalDebugger
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
 from pytorch_lightning.utilities.model_utils import is_overridden
 
+from .distributed_wrapper import DistributedSamplerWrapper
+
 
 class TrainerDataLoadingMixin(ABC):
 
@@ -96,15 +98,14 @@ class TrainerDataLoadingMixin(ABC):
 
         need_dist_sampler = self.require_distributed_sampler and not isinstance(dataloader.sampler, DistributedSampler)
         if self.replace_sampler_ddp and need_dist_sampler:
+            wrap_sampler = False
             if not isinstance(dataloader.sampler, (SequentialSampler, RandomSampler)):
-                raise MisconfigurationException(
-                    'You seem to have configured a sampler in your DataLoader. This will be replaced '
-                    ' by `DistributedSampler` since `replace_sampler_ddp` is True and you are using'
-                    ' distributed training. Either remove the sampler from your DataLoader or set'
-                    ' `replace_sampler_ddp`=False if you want to use your custom sampler.')
+                rank_zero_warn(f'Wrapping current custom sampler {dataloader.sampler} with DistributedSampler ...'
+                               ' If this is not the desired behavior, please specify `replace_sampler_ddp=False`')
+                wrap_sampler = True
 
             # replace with distributed sampler
-            sampler = self._get_distributed_sampler(dataloader, shuffle)
+            sampler = self._get_distributed_sampler(dataloader, shuffle, wrap=wrap_sampler)
             dataloader = self.replace_sampler(dataloader, sampler)
 
         return dataloader
@@ -123,10 +124,13 @@ class TrainerDataLoadingMixin(ABC):
         dataloader.multiprocessing_context = multiprocessing_context
         return dataloader
 
-    def _get_distributed_sampler(self, dataloader, shuffle):
+    def _get_distributed_sampler(self, dataloader, shuffle, wrap=False):
         kwargs = self.distributed_sampler_kwargs
         kwargs['shuffle'] = shuffle and not self.overfit_batches
-        sampler = DistributedSampler(dataloader.dataset, **kwargs)
+        if wrap: 
+            sampler = DistributedSamplerWrapper(dataloader.sampler, **kwargs)
+        else:
+            sampler = DistributedSampler(dataloader.dataset, **kwargs)
         return sampler
 
     def reset_train_dataloader(self, model: LightningModule) -> None:
