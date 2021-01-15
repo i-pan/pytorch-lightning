@@ -239,23 +239,6 @@ Note in particular the difference between `gpus=0`, `gpus=[0]` and `gpus="0"`.
     to be in "exclusive mode", such that only one process at a time can access them.
     For more details see the :ref:`Trainer guide <trainer>`.
 
-
-Remove CUDA flags
-^^^^^^^^^^^^^^^^^
-
-CUDA flags make certain GPUs visible to your script.
-Lightning sets these for you automatically, there's NO NEED to do this yourself.
-
-.. testcode::
-
-    # lightning will set according to what you give the trainer
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-However, when using a cluster, Lightning will NOT set these flags (and you should not either).
-SLURM will set these for you.
-For more details see the :ref:`SLURM cluster guide <slurm>`.
-
 ----------
 
 Distributed modes
@@ -379,7 +362,7 @@ project module) you can use the following method:
 .. code-block:: python
 
     # train on 8 GPUs (same machine (ie: node))
-    trainer = Trainer(gpus=8, accelerator='ddp')
+    trainer = Trainer(gpus=8, accelerator='ddp_spawn')
 
 We STRONGLY discourage this use because it has limitations (due to Python and PyTorch):
 
@@ -671,7 +654,7 @@ To use Sharded Training, you need to first install FairScale using the command b
 
 .. code-block:: bash
 
-    pip install https://github.com/PyTorchLightning/fairscale/archive/pl_1.1.0.zip
+    pip install fairscale
 
 
 .. code-block:: python
@@ -698,7 +681,7 @@ Reference: https://arxiv.org/abs/1811.06965
 
 .. note:: DDPSequentialPlugin is currently supported only for Pytorch 1.6.
 
-To get started, install FairScale using the command below.
+To get started, install FairScale using the command below. We install a specific branch which contains PyTorch related fixes for Sequential Parallelism.
 
 .. code-block:: bash
 

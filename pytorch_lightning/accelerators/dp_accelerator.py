@@ -65,8 +65,6 @@ class DataParallelAccelerator(Accelerator):
         if self.trainer.amp_backend:
             model = self.__init_half_precision(model)
 
-        self.trainer.convert_to_lightning_optimizers()
-
         self.trainer.model = model
 
     def __init_torch_data_parallel(self, model):
@@ -102,16 +100,6 @@ class DataParallelAccelerator(Accelerator):
             model = self.trainer.precision_connector.connect(model)
 
         return model
-
-    def train(self):
-        model = self.trainer.model
-        # set up training routine
-        self.trainer.train_loop.setup_training(model)
-
-        # train or test
-        results = self.train_or_test()
-
-        return results
 
     def teardown(self):
         # replace the original fwd function
